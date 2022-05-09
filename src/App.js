@@ -6,10 +6,10 @@ function App() {
   return (
     <div className="App" style={{ height:'100vh'}}>
       <Row style={{height:'50vh'}}>
-        <Col span={12} style={{ background: '#999' }}>
+        <Col span={16} style={{ background: '#999' }}>
           <PivotComponent style={{background:'#ccc'}}></PivotComponent>
         </Col>
-        <Col span={12}>2</Col>
+        <Col span={8}>2</Col>
       </Row>
     </div>
   );

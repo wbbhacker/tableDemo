@@ -3,9 +3,12 @@ import { React, useRef,useEffect, useState,} from 'react';
 import insertCss from 'insert-css';
 import { SheetComponent } from '@antv/s2-react';
 import '@antv/s2-react/dist/style.min.css';
-import res from './data.json'
+import res from './data'
 import { Button } from 'antd';
 
+import { EXTRA_FIELD,Aggregation } from '@antv/s2';
+
+console.log(res.data)
 function PivotComponent() {
   const divRef = useRef()
   const s2Ref = useRef()
@@ -86,56 +89,55 @@ function PivotComponent() {
     margin:0px !important;
   }
 `);
-  const getTargetColor = (value) => {
+  const getTargetColor = (value,data) => {
     if (isNaN(Number(value))) {
       return PALETTE_COLORS[0].background;
     }
-    return PALETTE_COLORS[Math.floor(Number(value) / 10)].background;
+    if ( data === null || data === undefined || !Object.hasOwn(data, s2DataConfig.fields.rows[0]) ) { 
+      return '#ffffff' // 排除 总计
+    }
+    return PALETTE_COLORS[Math.floor(Number(value) / 1000)].background;
   };
-  // const sortParams = [
-  //   { sortFieldId: 'type', sortMethod: 'DESC' },
-  //   { sortFieldId: 'job', sortMethod: 'DESC'},
-  //   { sortFieldId: 'age', sortMethod: 'DESC'},
-  //   {sortFieldId: 'age', sortMethod: 'DESC'},
-  //   {sortFieldId: 'city', sortMethod: 'DESC'},
-  //   {sortFieldId: 'count', sortMethod: 'DESC'},
-  // ];
   const s2DataConfig = {
     fields: {
-      rows: ['type', 'job','sex'],
-      columns: ['age', 'city'],
-      values: ['count'],
+      rows: ['provice', 'city','district'],
+      columns: ['type', 'age'],
+      values: ['spending'],
       valueInCols: true,
     },
     meta: [
       {
+        field: 'provice',
+        name: '省份',
+      },
+      {
+        field: 'city',
+        name:'城市'
+      },
+      {
+        field: 'district',
+        name: '市区',
+      },
+      {
         field: 'type',
-        name: '类别',
-      },
-      {
-        field: 'sex',
-        name:'性别'
-      },
-      {
-        field: 'job',
         name: '职业',
       },
       {
         field: 'age',
-        name: '年龄分布',
+        name: '年龄',
       },
       {
-        field: 'city',
-        name: '所在城市',
+        field: 'income',
+        name: '收入',
       },
       {
-        field: 'count',
-        name: '数值',
+        field: 'spending',
+        name: '支出',
       },
     ],
     data: res.data,
-    // sortParams
   };
+
   const s2Options = {
     tooltip: {
       showTooltip: true,
@@ -157,6 +159,15 @@ function PivotComponent() {
         width: 100,
       },
     },
+    totals: {
+      row: {
+        showGrandTotals: true, //是否开启总计
+        reverseLayout: true,  //总计的位置，在上/下
+        calcTotals: { // 总计的计算方法
+          aggregation:Aggregation.SUM
+        },
+      }
+    },
     conditions: {
       text: [
         {
@@ -168,29 +179,66 @@ function PivotComponent() {
           },
         },
       ],
-      background: [
+      interval: [
         {
-          field: 'count',
-          mapping(value) {
-            const backgroundColor = getTargetColor(value);
+          field: 'spending',
+          mapping() {
             return {
-              fill: backgroundColor,
+              fill: '#80BFFF',
+              // 自定义柱状图范围
+              isCompare: true,
+              maxValue: 9900,
+              minValue: 1000,
             };
           },
         },
       ],
+      background:  []
     },
   
   };
 
-
   // const [dataCfg, setDataCfg] = useState(s2DataConfig);
   const [s2OptionsCfg, setS2OptionsCfg] = useState(s2Options);
   const [isTree, setIsTree] = useState(false)
+  const [isBgOrIn, setIsBgOrIn] = useState(true)
 
-  const buttonClick = () => { 
+  const buttonClick = () => {
     setS2OptionsCfg({ ...s2OptionsCfg, ...{hierarchyType: !isTree ? 'tree' : 'grid'}})
     setIsTree(!isTree)
+  }
+
+  const buttonClickBg = () => { 
+
+    setS2OptionsCfg({
+        ...s2OptionsCfg, ...{
+          conditions: {
+            interval:!isBgOrIn ? [  {
+              field: 'spending',
+              mapping() {
+                return {
+                  fill: '#80BFFF',
+                  // 自定义柱状图范围
+                  isCompare: true,
+                  maxValue: 9900,
+                  minValue: 1000,
+                };
+              },
+            }] : [],
+            background:isBgOrIn ? [
+              {
+                field: 'spending',
+                mapping(value,data) {
+                  return {
+                    fill: getTargetColor(value,data),
+                  };
+                },
+              },
+            ] : []
+      }
+  }})
+
+    setIsBgOrIn(!isBgOrIn)
   }
 
   return <div ref={ divRef }>
@@ -201,16 +249,25 @@ function PivotComponent() {
       adaptive={{ width: true, height: true }}
       ref={s2Ref}
       header={{
+        exportCfg: { // 导出组件
+          open:true
+        },  
         switcherCfg: {
           // open:true
         },
         extra: (
-          <Button size={'small'} style={{ verticalAlign: 'top' }} onClick={  buttonClick }>
+          <>
+            <Button size={'small'} style={{ verticalAlign: 'top' }} onClick={  buttonClickBg }>
+            { `切换${isBgOrIn ? '背景' :'柱状图'}标记`}
+            </Button>
+            <Button size={'small'} style={{ verticalAlign: 'top' }} onClick={  buttonClick }>
             { `切换${isTree ? '平铺' :'树形'}形态`}
           </Button>
+          </>
+         
         ),
         advancedSortCfg: {
-          open: true
+          open: true // 高级排序
           // sortParams,
           // onSortConfirm: (ruleValues, sortParams) => {
           //   setDataCfg({ ...dataCfg, sortParams });
